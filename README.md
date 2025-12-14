@@ -34,8 +34,8 @@ The app provides a single GUI that:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR-USERNAME/portal-doctor.git
-cd portal-doctor
+git clone https://github.com/RecursiveIntell/portaldoctor
+cd portaldoctor
 
 # Install dependencies
 poetry install
@@ -48,8 +48,8 @@ poetry run portal-doctor
 
 ```bash
 # Clone and install from source
-git clone https://github.com/YOUR-USERNAME/portal-doctor.git
-cd portal-doctor
+git clone https://github.com/RecursiveIntell/portaldoctor
+cd portaldoctor
 pip install .
 
 # Run
@@ -60,8 +60,8 @@ portal-doctor
 
 ```bash
 # Clone and run directly
-git clone https://github.com/YOUR-USERNAME/portal-doctor.git
-cd portal-doctor
+git clone https://github.com/RecursiveIntell/portaldoctor
+cd portaldoctor
 pip install --user PySide6 dbus-next
 ./run.sh
 ```
