@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "portal-doctor"
+version = "0.1.0"
+description = "A Linux desktop application that diagnoses and fixes Wayland screen-sharing issues"
+authors = ["Portal Doctor Contributors"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "portal_doctor"}]
+
+[tool.poetry.scripts]
+portal-doctor = "portal_doctor.main:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+PySide6 = "^6.6"
+dbus-next = "^0.2.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-asyncio = "^0.23"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
