@@ -112,7 +112,17 @@ MIT License - See [LICENSE](LICENSE) for details.
 
 ## Screenshots
 
-<!-- TODO: Add screenshots -->
+![Overview Tab](assets/screenshots/overview.png)
+*Overview Tab showing health check status and findings*
+
+![Fixes Tab](assets/screenshots/fixes.png)
+*Fixes Tab providing actionable solutions with previews*
+
+![Test Screencast](assets/screenshots/test_screencast.png)
+*Test Screencast Tab for verifying screen sharing functionality*
+
+![Report Tab](assets/screenshots/report.png)
+*Report Tab generating shareable diagnostic information*
 
 ## Contributing
 
