@@ -5,13 +5,19 @@ CreateSession → SelectSources → Start
 """
 
 import asyncio
+import re
 from typing import Optional
 
 from dbus_next.aio import MessageBus
 from dbus_next import BusType, Variant
 from dbus_next.errors import DBusError
+import dbus_next.validators
 
 from ..models import ScreenCastTestResult
+
+# Patch dbus-next to allow hyphens in member names (e.g. "power-saver-enabled" property)
+# This fixes the upstream bug: https://github.com/altdesktop/python-dbus-next/issues/92
+dbus_next.validators._element_re = re.compile(r'^[A-Za-z_][A-Za-z0-9_-]*$')
 
 
 # Portal interface path
@@ -19,53 +25,6 @@ PORTAL_OBJECT_PATH = "/org/freedesktop/portal/desktop"
 PORTAL_BUS_NAME = "org.freedesktop.portal.Desktop"
 SCREENCAST_IFACE = "org.freedesktop.portal.ScreenCast"
 REQUEST_IFACE = "org.freedesktop.portal.Request"
-
-# Minimal XML interface for when introspection fails (dbus-next power-saver bug workaround)
-SCREENCAST_MINIMAL_XML = '''
-<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
-"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node>
-  <interface name="org.freedesktop.portal.ScreenCast">
-    <method name="CreateSession">
-      <arg type="a{sv}" name="options" direction="in"/>
-      <arg type="o" name="handle" direction="out"/>
-    </method>
-    <method name="SelectSources">
-      <arg type="o" name="session_handle" direction="in"/>
-      <arg type="a{sv}" name="options" direction="in"/>
-      <arg type="o" name="handle" direction="out"/>
-    </method>
-    <method name="Start">
-      <arg type="o" name="session_handle" direction="in"/>
-      <arg type="s" name="parent_window" direction="in"/>
-      <arg type="a{sv}" name="options" direction="in"/>
-      <arg type="o" name="handle" direction="out"/>
-    </method>
-  </interface>
-  <interface name="org.freedesktop.portal.Request">
-    <method name="Close"/>
-    <signal name="Response">
-      <arg type="u" name="response"/>
-      <arg type="a{sv}" name="results"/>
-    </signal>
-  </interface>
-</node>
-'''
-
-# Minimal Request interface for waiting on responses
-REQUEST_MINIMAL_XML = '''
-<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
-"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
-<node>
-  <interface name="org.freedesktop.portal.Request">
-    <method name="Close"/>
-    <signal name="Response">
-      <arg type="u" name="response"/>
-      <arg type="a{sv}" name="results"/>
-    </signal>
-  </interface>
-</node>
-'''
 
 
 class ScreenCastTest:
@@ -122,15 +81,7 @@ class ScreenCastTest:
         
         try:
             # Get the request object and connect to Response signal
-            try:
-                introspection = await self.bus.introspect(PORTAL_BUS_NAME, request_path)
-            except Exception as introspect_error:
-                # Fallback for dbus-next introspection bugs
-                if "power-saver" in str(introspect_error).lower() or "member name" in str(introspect_error).lower():
-                    from dbus_next.introspection import Node
-                    introspection = Node.parse(REQUEST_MINIMAL_XML)
-                else:
-                    raise introspect_error
+            introspection = await self.bus.introspect(PORTAL_BUS_NAME, request_path)
             
             proxy = self.bus.get_proxy_object(PORTAL_BUS_NAME, request_path, introspection)
             request_iface = proxy.get_interface(REQUEST_IFACE)
@@ -166,17 +117,7 @@ class ScreenCastTest:
             
             # Get portal proxy
             step = "GetPortal"
-            try:
-                introspection = await self.bus.introspect(PORTAL_BUS_NAME, PORTAL_OBJECT_PATH)
-            except Exception as introspect_error:
-                # dbus-next has a bug with property names containing hyphens (like "power-saver-enabled")
-                # Fall back to a minimal interface definition
-                if "power-saver" in str(introspect_error).lower() or "member name" in str(introspect_error).lower():
-                    from dbus_next.introspection import Node
-                    # Use minimal hardcoded interface for ScreenCast
-                    introspection = Node.parse(SCREENCAST_MINIMAL_XML)
-                else:
-                    raise introspect_error
+            introspection = await self.bus.introspect(PORTAL_BUS_NAME, PORTAL_OBJECT_PATH)
             
             proxy = self.bus.get_proxy_object(PORTAL_BUS_NAME, PORTAL_OBJECT_PATH, introspection)
             screencast = proxy.get_interface(SCREENCAST_IFACE)
