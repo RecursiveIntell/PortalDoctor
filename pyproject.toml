@@ -11,9 +11,9 @@ packages = [{include = "portal_doctor"}]
 portal-doctor = "portal_doctor.main:main"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.13"
 PySide6 = "^6.6"
-dbus-next = "^0.2.3"
+dbus-next = {git = "https://github.com/altdesktop/python-dbus-next.git", rev = "ab566e16a71bfc9d7e0d29676aa459ec060e72c5"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"

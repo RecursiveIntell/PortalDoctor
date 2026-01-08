@@ -21,6 +21,7 @@ SCREENCAST_IFACE = "org.freedesktop.portal.ScreenCast"
 REQUEST_IFACE = "org.freedesktop.portal.Request"
 
 
+
 class ScreenCastTest:
     """Runs the XDG ScreenCast portal test flow."""
     
