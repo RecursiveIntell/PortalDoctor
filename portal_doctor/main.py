@@ -3,14 +3,30 @@
 import sys
 import argparse
 
+from . import __version__
+
 
 def main():
     """Main entry point supporting both GUI and CLI modes."""
     parser = argparse.ArgumentParser(
         prog="portal-doctor",
         description="Diagnose and fix Wayland screen-sharing issues",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  portal-doctor                 Launch GUI
+  portal-doctor --check         Run diagnostics in terminal
+  portal-doctor --check --json  Output diagnostics as JSON
+  portal-doctor --report        Generate diagnostic report
+  portal-doctor --test-screencast  Test screen sharing
+        """,
     )
-    
+
+    parser.add_argument(
+        "-V", "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -31,7 +47,17 @@ def main():
         action="store_true",
         help="Disable GUI, use CLI only",
     )
-    
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output with additional details",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output results in JSON format (for scripting)",
+    )
+
     args = parser.parse_args()
     
     # CLI mode if any CLI flag is provided

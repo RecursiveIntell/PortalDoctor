@@ -160,10 +160,10 @@ class ReportTab(QWidget):
         """Save report to a file."""
         if not self.current_report:
             return
-        
+
         # Use default location or let user choose
         success, result = save_report(self.current_report)
-        
+
         if success:
             self.status_label.setText(f"✅ Report saved to: {result}")
             QMessageBox.information(
@@ -179,7 +179,7 @@ class ReportTab(QWidget):
                 "portal-doctor-report.md",
                 "Markdown (*.md);;Text (*.txt);;All Files (*)"
             )
-            
+
             if filepath:
                 try:
                     with open(filepath, 'w') as f:
@@ -191,3 +191,12 @@ class ReportTab(QWidget):
                         "Error",
                         f"Failed to save report: {e}"
                     )
+
+    def _save_report(self):
+        """Public method to save report (called from menu)."""
+        # Generate report first if not already generated
+        if not self.current_report:
+            self._generate_report()
+
+        if self.current_report:
+            self._save_to_file()

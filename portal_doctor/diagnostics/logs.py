@@ -131,8 +131,9 @@ def sanitize_log_output(output: str, max_length: int = 50000) -> str:
     
     # Truncate if too long
     if len(result) > max_length:
+        original_length = len(result)
         truncated_lines = result[:max_length].rsplit("\n", 1)[0]
-        result = truncated_lines + f"\n\n... (output truncated, {len(output) - max_length} characters omitted)"
+        result = truncated_lines + f"\n\n... (output truncated, {original_length - len(truncated_lines)} characters omitted)"
     
     return result
 

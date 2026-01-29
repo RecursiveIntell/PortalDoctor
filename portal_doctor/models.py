@@ -47,7 +47,7 @@ class Action:
 @dataclass
 class Finding:
     """A diagnostic finding from the rules engine."""
-    
+
     id: str
     severity: Severity
     title: str
@@ -55,9 +55,14 @@ class Finding:
     evidence: str
     component: str
     recommended_actions: list[Action] = field(default_factory=list)
-    
+
     def __hash__(self):
         return hash(self.id)
+
+    def __eq__(self, other):
+        if not isinstance(other, Finding):
+            return NotImplemented
+        return self.id == other.id
 
 
 @dataclass
@@ -97,6 +102,20 @@ class EnvironmentInfo:
     def is_hyprland(self) -> bool:
         return "hyprland" in (self.compositor or "").lower() or \
                "hyprland" in self.current_desktop.lower()
+
+    @property
+    def is_cosmic(self) -> bool:
+        return "cosmic" in (self.compositor or "").lower() or \
+               "cosmic" in self.current_desktop.lower()
+
+    @property
+    def is_lxqt(self) -> bool:
+        return "lxqt" in self.current_desktop.lower()
+
+    @property
+    def is_cinnamon(self) -> bool:
+        return "cinnamon" in self.current_desktop.lower() or \
+               "x-cinnamon" in self.current_desktop.lower()
 
 
 @dataclass

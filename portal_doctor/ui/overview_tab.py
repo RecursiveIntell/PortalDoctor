@@ -10,7 +10,7 @@ from PySide6.QtGui import QFont
 
 from ..models import Finding, Severity, EnvironmentInfo, ServiceStatus, PortalBackend
 from ..diagnostics.env_detect import detect_environment
-from ..diagnostics.services import check_service_status, PORTAL_SERVICES, PIPEWIRE_SERVICES, is_systemd_available, get_systemd_warning
+from ..diagnostics.services import check_service_status, PORTAL_SERVICES, PIPEWIRE_SERVICES, get_systemd_warning
 from ..diagnostics.portals import discover_backends, read_portals_config
 from ..diagnostics.pipewire import check_pipewire_status
 from ..diagnostics.logs import collect_journal_logs, get_relevant_log_services
@@ -33,9 +33,8 @@ class DiagnosticsWorker(QObject):
             
             # Skip screencast test on X11
             run_screencast_test = not environment.is_x11
-            
+
             # Check for systemd availability
-            systemd_available = is_systemd_available()
             systemd_warning = get_systemd_warning()
             
             self.progress.emit("Checking services...")

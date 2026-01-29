@@ -1,11 +1,23 @@
 [tool.poetry]
 name = "portal-doctor"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Linux desktop application that diagnoses and fixes Wayland screen-sharing issues"
 authors = ["Portal Doctor Contributors"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "portal_doctor"}]
+keywords = ["wayland", "linux", "screen-sharing", "pipewire", "xdg-portal", "diagnostics"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 
 [tool.poetry.scripts]
 portal-doctor = "portal_doctor.main:main"
@@ -18,6 +30,7 @@ dbus-next = {git = "https://github.com/altdesktop/python-dbus-next.git", rev = "
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"
 pytest-asyncio = "^0.23"
+ruff = "^0.1"
 
 [build-system]
 requires = ["poetry-core"]
@@ -26,3 +39,11 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "UP"]
+ignore = ["E501"]

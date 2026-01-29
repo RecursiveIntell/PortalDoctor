@@ -57,9 +57,6 @@ PIPEWIRE_SERVICES = [
     "pipewire-pulse.socket",
 ]
 
-# All relevant services
-ALL_SERVICES = PORTAL_SERVICES + PIPEWIRE_SERVICES
-
 
 def check_service_status(service_name: str, timeout: int = 10) -> ServiceStatus:
     """Check the status of a systemd user service.

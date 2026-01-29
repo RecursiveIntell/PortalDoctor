@@ -165,6 +165,11 @@ def generate_recommended_config(env: EnvironmentInfo,
             preferred = "hyprland"
         elif "wlr" in backend_names:
             preferred = "wlr"
+    elif env.is_cosmic:
+        if "cosmic" in backend_names:
+            preferred = "cosmic"
+        elif "wlr" in backend_names:
+            preferred = "wlr"
     elif env.is_wlroots:
         if "wlr" in backend_names:
             preferred = "wlr"
@@ -178,6 +183,16 @@ def generate_recommended_config(env: EnvironmentInfo,
             preferred = "gnome"
         elif "gtk" in backend_names:
             preferred = "gtk"
+    elif env.is_lxqt:
+        if "lxqt" in backend_names:
+            preferred = "lxqt"
+        elif "gtk" in backend_names:
+            preferred = "gtk"
+    elif env.is_cinnamon:
+        if "gtk" in backend_names:
+            preferred = "gtk"
+        elif "gnome" in backend_names:
+            preferred = "gnome"
     
     # Fallback: if no specific match, use gtk as a common fallback
     if not preferred:

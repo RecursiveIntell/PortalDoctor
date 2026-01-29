@@ -133,7 +133,7 @@ def _system_info_section() -> str:
         "| Property | Value |",
         "|----------|-------|",
     ]
-    
+
     # OS info
     try:
         with open("/etc/os-release") as f:
@@ -143,13 +143,16 @@ def _system_info_section() -> str:
                     key, value = line.strip().split("=", 1)
                     os_info[key] = value.strip('"')
             distro = os_info.get("PRETTY_NAME", "Unknown")
-    except:
+    except (OSError, IOError, ValueError):
         distro = platform.platform()
-    
+
     lines.append(f"| Distribution | {distro} |")
     lines.append(f"| Kernel | {platform.release()} |")
     lines.append(f"| Architecture | {platform.machine()} |")
-    
+
+    # Python version
+    lines.append(f"| Python | {platform.python_version()} |")
+
     # Display server
     wayland_display = os.environ.get("WAYLAND_DISPLAY", "")
     x_display = os.environ.get("DISPLAY", "")
@@ -157,12 +160,37 @@ def _system_info_section() -> str:
         lines.append(f"| Wayland Display | {wayland_display} |")
     if x_display:
         lines.append(f"| X11 Display | {x_display} |")
-    
+
     # XDG runtime
     xdg_runtime = os.environ.get("XDG_RUNTIME_DIR", "")
     if xdg_runtime:
         lines.append(f"| XDG Runtime Dir | `{xdg_runtime}` |")
-    
+        # Check available space
+        try:
+            import shutil
+            total, used, free = shutil.disk_usage(xdg_runtime)
+            free_mb = free // (1024 * 1024)
+            lines.append(f"| Runtime Dir Free Space | {free_mb} MB |")
+        except (OSError, ValueError):
+            pass
+
+    # Memory info
+    try:
+        with open("/proc/meminfo") as f:
+            meminfo = {}
+            for line in f:
+                parts = line.split(":")
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip().split()[0]
+                    meminfo[key] = int(value) if value.isdigit() else value
+            total_mem = meminfo.get("MemTotal", 0)
+            if total_mem:
+                total_gb = total_mem / (1024 * 1024)
+                lines.append(f"| Total RAM | {total_gb:.1f} GB |")
+    except (OSError, IOError, ValueError, KeyError):
+        pass
+
     return "\n".join(lines)
 
 
@@ -438,22 +466,25 @@ def _troubleshooting_section(env: EnvironmentInfo, findings: list[Finding]) -> s
         "## 💡 Troubleshooting Tips",
         "",
     ]
-    
+
     tips = []
-    
+
     # Add tips based on environment
     if env.session_type == "x11":
         tips.append("🔹 **X11 Session:** XDG portals are designed for Wayland. Consider switching to a Wayland session for best screen sharing support.")
-    
+
     if env.is_kde:
         tips.append("🔹 **KDE Plasma:** Ensure `xdg-desktop-portal-kde` is installed and running. Restart the portal services after making changes.")
-    
+
     if env.is_gnome:
         tips.append("🔹 **GNOME:** Ensure `xdg-desktop-portal-gnome` is installed. GNOME typically handles portals automatically.")
-    
+
     if env.is_hyprland or env.is_wlroots:
         tips.append("🔹 **wlroots-based compositor:** You may need `xdg-desktop-portal-wlr` or `xdg-desktop-portal-hyprland`. Add `exec-once = dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP` to your config.")
-    
+
+    if getattr(env, 'is_cosmic', False):
+        tips.append("🔹 **COSMIC Desktop:** COSMIC is still in development. Try `xdg-desktop-portal-cosmic` if available, or `xdg-desktop-portal-wlr` as fallback.")
+
     # General tips
     tips.extend([
         "",
@@ -463,12 +494,72 @@ def _troubleshooting_section(env: EnvironmentInfo, findings: list[Finding]) -> s
         "3. Log out and back in to refresh the session",
         "4. Check if `~/.config/xdg-desktop-portal/portals.conf` exists and is correct",
     ])
-    
+
     if tips:
         lines.extend(tips)
     else:
         lines.append("No specific tips for your configuration.")
-    
+
+    # Add quick fix script
+    lines.append("")
+    lines.append(_generate_quick_fix_script(env, findings))
+
+    return "\n".join(lines)
+
+
+def _generate_quick_fix_script(env: EnvironmentInfo, findings: list[Finding]) -> str:
+    """Generate a quick fix script based on findings."""
+    commands = []
+
+    # Always include basic restart commands
+    commands.append("# Portal Doctor - Quick Fix Script")
+    commands.append("# Run these commands to attempt to fix screen sharing issues")
+    commands.append("")
+
+    # Add commands based on findings
+    has_portal_issue = any(
+        f.id in ("portal_not_running", "no_backend_running", "screencast_portal_issue")
+        for f in findings
+    )
+    has_pipewire_issue = any(
+        f.id in ("pipewire_not_running", "no_session_manager")
+        for f in findings
+    )
+
+    if has_portal_issue or not findings:
+        commands.append("# Restart portal services")
+        commands.append("systemctl --user restart xdg-desktop-portal.service")
+        commands.append("")
+
+    if has_pipewire_issue or not findings:
+        commands.append("# Restart PipeWire and session manager")
+        commands.append("systemctl --user restart pipewire.service wireplumber.service")
+        commands.append("")
+
+    # Environment update for wlroots compositors
+    if env.is_wlroots or env.is_hyprland:
+        commands.append("# Update DBus environment (needed for wlroots compositors)")
+        commands.append("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
+        commands.append("")
+
+    commands.append("# Verify services are running")
+    commands.append("systemctl --user status xdg-desktop-portal.service pipewire.service --no-pager")
+
+    lines = [
+        "### 🚀 Quick Fix Script",
+        "",
+        "<details>",
+        "<summary>Click to show quick fix commands</summary>",
+        "",
+        "```bash",
+    ]
+    lines.extend(commands)
+    lines.extend([
+        "```",
+        "",
+        "</details>",
+    ])
+
     return "\n".join(lines)
 
 
@@ -514,7 +605,8 @@ def _logs_section(journal_excerpts: dict[str, str]) -> str:
 
 def _footer_section() -> str:
     """Generate report footer."""
-    return """---
+    from .. import __version__
+    return f"""---
 
 ## 📋 How to Use This Report
 
@@ -525,9 +617,9 @@ def _footer_section() -> str:
 
 ---
 
-*Report generated by Portal Doctor v0.1.0*
+*Report generated by Portal Doctor v{__version__}*
 
-*For help or to report issues: https://github.com/YOUR-USERNAME/portal-doctor*"""
+*Portal Doctor - Linux Wayland Screen Sharing Diagnostics Tool*"""
 
 
 def save_report(report: str, filename: Optional[str] = None) -> tuple[bool, str]:

@@ -459,18 +459,12 @@ class ActionConfirmDialog(QDialog):
     def _generate_diff(self):
         """Generate a unified diff between current and new config."""
         from ..diagnostics.portals import read_portals_config, get_config_diff
-        
+
         current_config = read_portals_config()
         current_text = ""
-        if current_config:
-            lines = []
-            for section, values in current_config.items():
-                lines.append(f"[{section}]")
-                for key, value in values.items():
-                    lines.append(f"{key}={value}")
-                lines.append("")
-            current_text = "\n".join(lines)
-        
+        if current_config and current_config.raw_content:
+            current_text = current_config.raw_content
+
         self.diff_text = get_config_diff(current_text, self.preview)
     
     def _show_diff(self):

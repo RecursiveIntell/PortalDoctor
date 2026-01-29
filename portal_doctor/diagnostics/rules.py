@@ -363,20 +363,20 @@ def rule_no_session_manager(ctx: DiagnosticContext) -> Finding | None:
     """Detect if no PipeWire session manager is running."""
     if ctx.environment.is_x11:
         return None
-    
+
     # Check for wireplumber or pipewire-media-session
     wp_status = ctx.pipewire_statuses.get("wireplumber.service")
     pms_status = ctx.pipewire_statuses.get("pipewire-media-session.service")
-    
+
     wp_active = wp_status and wp_status.is_active
     pms_active = pms_status and pms_status.is_active
-    
+
     if wp_active or pms_active:
         return None
-    
+
     def restart_wireplumber():
         return restart_service("wireplumber.service")
-    
+
     return Finding(
         id="no_session_manager",
         severity=Severity.WARNING,
@@ -401,7 +401,401 @@ def rule_no_session_manager(ctx: DiagnosticContext) -> Finding | None:
     )
 
 
+def rule_flatpak_portal_issues(ctx: DiagnosticContext) -> Finding | None:
+    """Detect Flatpak portal configuration issues."""
+    import os
+    from pathlib import Path
+
+    if ctx.environment.is_x11:
+        return None
+
+    # Check if running inside Flatpak
+    flatpak_id = os.environ.get("FLATPAK_ID")
+    if flatpak_id:
+        return Finding(
+            id="running_inside_flatpak",
+            severity=Severity.INFO,
+            title="Running Inside Flatpak Sandbox",
+            component="Flatpak",
+            details=(
+                f"Portal Doctor is running inside a Flatpak sandbox ({flatpak_id}). "
+                "Some diagnostics may be limited due to sandboxing.\n\n"
+                "For best results, run Portal Doctor directly on the host system."
+            ),
+            evidence=f"FLATPAK_ID={flatpak_id}",
+            recommended_actions=[
+                Action(
+                    id="run_on_host",
+                    type=ActionType.GUIDANCE,
+                    label="Run on Host System",
+                    description="Run Portal Doctor outside of Flatpak for complete diagnostics",
+                ),
+            ],
+        )
+
+    # Check for Flatpak portal override issues
+    flatpak_overrides = Path.home() / ".local/share/flatpak/overrides"
+    if flatpak_overrides.exists():
+        global_override = flatpak_overrides / "global"
+        if global_override.exists():
+            try:
+                content = global_override.read_text()
+                if "talk-name=org.freedesktop.portal" in content and "!" in content:
+                    return Finding(
+                        id="flatpak_portal_blocked",
+                        severity=Severity.WARNING,
+                        title="Flatpak Portal Access May Be Blocked",
+                        component="Flatpak",
+                        details=(
+                            "Found a global Flatpak override that may be blocking portal access. "
+                            "This can prevent Flatpak applications from using screen sharing.\n\n"
+                            "Check your Flatpak overrides if apps inside Flatpak can't share screens."
+                        ),
+                        evidence=f"Override file: {global_override}",
+                        recommended_actions=[
+                            Action(
+                                id="check_flatpak_overrides",
+                                type=ActionType.SHOW_COMMAND,
+                                label="View Flatpak Overrides",
+                                description="Check the Flatpak permission overrides",
+                                command="flatpak override --user --show",
+                            ),
+                        ],
+                    )
+            except (OSError, IOError):
+                pass
+
+    return None
+
+
+def rule_xdg_runtime_dir(ctx: DiagnosticContext) -> Finding | None:
+    """Check XDG_RUNTIME_DIR exists and has correct permissions."""
+    import os
+    import stat
+    from pathlib import Path
+
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR")
+
+    if not runtime_dir:
+        return Finding(
+            id="xdg_runtime_dir_missing",
+            severity=Severity.ERROR,
+            title="XDG_RUNTIME_DIR Not Set",
+            component="Environment",
+            details=(
+                "The XDG_RUNTIME_DIR environment variable is not set. This directory is "
+                "essential for PipeWire sockets and portal communication.\n\n"
+                "This usually indicates a problem with your login session or display manager."
+            ),
+            evidence="XDG_RUNTIME_DIR is not set",
+            recommended_actions=[
+                Action(
+                    id="check_session",
+                    type=ActionType.GUIDANCE,
+                    label="Check Login Session",
+                    description="Make sure you're using a proper display manager (SDDM, GDM, etc.) and not just startx",
+                ),
+            ],
+        )
+
+    runtime_path = Path(runtime_dir)
+
+    if not runtime_path.exists():
+        return Finding(
+            id="xdg_runtime_dir_not_exists",
+            severity=Severity.ERROR,
+            title="XDG_RUNTIME_DIR Does Not Exist",
+            component="Environment",
+            details=(
+                f"The runtime directory ({runtime_dir}) does not exist. "
+                "This is required for PipeWire and portal communication."
+            ),
+            evidence=f"Directory missing: {runtime_dir}",
+            recommended_actions=[
+                Action(
+                    id="relogin",
+                    type=ActionType.GUIDANCE,
+                    label="Re-login to Session",
+                    description="Log out and log back in to recreate the runtime directory",
+                ),
+            ],
+        )
+
+    # Check permissions
+    try:
+        dir_stat = runtime_path.stat()
+        mode = dir_stat.st_mode
+
+        # Should be owned by current user and mode 0700
+        if dir_stat.st_uid != os.getuid():
+            return Finding(
+                id="xdg_runtime_dir_wrong_owner",
+                severity=Severity.ERROR,
+                title="XDG_RUNTIME_DIR Wrong Owner",
+                component="Environment",
+                details=(
+                    f"The runtime directory ({runtime_dir}) is not owned by you. "
+                    "This can cause permission issues with PipeWire and portals."
+                ),
+                evidence=f"Owner UID: {dir_stat.st_uid}, Your UID: {os.getuid()}",
+                recommended_actions=[
+                    Action(
+                        id="relogin",
+                        type=ActionType.GUIDANCE,
+                        label="Re-login to Session",
+                        description="Log out and log back in to fix the runtime directory",
+                    ),
+                ],
+            )
+
+        # Check if it's too permissive (security issue)
+        if mode & stat.S_IRWXO:  # Others have any access
+            return Finding(
+                id="xdg_runtime_dir_insecure",
+                severity=Severity.WARNING,
+                title="XDG_RUNTIME_DIR Has Insecure Permissions",
+                component="Environment",
+                details=(
+                    f"The runtime directory ({runtime_dir}) has overly permissive access. "
+                    "It should only be accessible by you (mode 0700)."
+                ),
+                evidence=f"Current mode: {oct(mode)}",
+                recommended_actions=[
+                    Action(
+                        id="fix_permissions",
+                        type=ActionType.RESTART_SERVICE,
+                        label="Fix Permissions",
+                        description="Set correct permissions on runtime directory",
+                        command=f"chmod 700 {runtime_dir}",
+                    ),
+                ],
+            )
+    except OSError:
+        pass
+
+    return None
+
+
+def rule_gtk_use_portal(ctx: DiagnosticContext) -> Finding | None:
+    """Check GTK_USE_PORTAL environment variable."""
+    import os
+
+    if ctx.environment.is_x11:
+        return None
+
+    gtk_use_portal = os.environ.get("GTK_USE_PORTAL")
+
+    # On Wayland, GTK_USE_PORTAL should NOT be set to 0/false
+    if gtk_use_portal in ("0", "false", "no"):
+        return Finding(
+            id="gtk_use_portal_disabled",
+            severity=Severity.WARNING,
+            title="GTK Portal Usage Disabled",
+            component="Environment",
+            details=(
+                "The GTK_USE_PORTAL environment variable is set to disable portal usage. "
+                "This can prevent GTK applications from using native file dialogs and "
+                "screen sharing on Wayland.\n\n"
+                "Consider removing this environment variable or setting it to 1."
+            ),
+            evidence=f"GTK_USE_PORTAL={gtk_use_portal}",
+            recommended_actions=[
+                Action(
+                    id="unset_gtk_use_portal",
+                    type=ActionType.GUIDANCE,
+                    label="Remove GTK_USE_PORTAL",
+                    description=(
+                        "Remove GTK_USE_PORTAL=0 from your shell profile (~/.bashrc, ~/.profile) "
+                        "or environment.d files"
+                    ),
+                ),
+            ],
+        )
+
+    return None
+
+
+def rule_conflicting_backends(ctx: DiagnosticContext) -> Finding | None:
+    """Detect multiple portal backends running simultaneously."""
+    if ctx.environment.is_x11:
+        return None
+
+    # List of backend services that can conflict
+    backend_services = {
+        "xdg-desktop-portal-kde.service": "KDE",
+        "xdg-desktop-portal-gnome.service": "GNOME",
+        "xdg-desktop-portal-gtk.service": "GTK",
+        "xdg-desktop-portal-wlr.service": "wlroots",
+        "xdg-desktop-portal-hyprland.service": "Hyprland",
+        "xdg-desktop-portal-lxqt.service": "LXQt",
+    }
+
+    running_backends = []
+    for service, name in backend_services.items():
+        status = ctx.portal_statuses.get(service)
+        if status and status.is_active:
+            running_backends.append((service, name))
+
+    # Having multiple backends running can cause conflicts
+    if len(running_backends) > 1:
+        backend_names = ", ".join(name for _, name in running_backends)
+        service_names = ", ".join(svc for svc, _ in running_backends)
+
+        return Finding(
+            id="conflicting_backends",
+            severity=Severity.WARNING,
+            title="Multiple Portal Backends Running",
+            component="Portal Backend",
+            details=(
+                f"Multiple portal backends are running simultaneously: {backend_names}.\n\n"
+                "This can cause conflicts and unpredictable behavior. Usually only one "
+                "backend should be active - the one that matches your desktop environment.\n\n"
+                "Consider stopping the extra backends or creating a portals.conf to "
+                "explicitly select which one to use."
+            ),
+            evidence=f"Active services: {service_names}",
+            recommended_actions=[
+                Action(
+                    id="restart_portal",
+                    type=ActionType.RESTART_SERVICE,
+                    label="Restart Portal Service",
+                    description="Restart xdg-desktop-portal to let it select the correct backend",
+                    command="systemctl --user restart xdg-desktop-portal.service",
+                ),
+                Action(
+                    id="check_config",
+                    type=ActionType.GUIDANCE,
+                    label="Create portals.conf",
+                    description="Create ~/.config/xdg-desktop-portal/portals.conf to specify the preferred backend",
+                ),
+            ],
+        )
+
+    return None
+
+
+def rule_pipewire_socket_activation(ctx: DiagnosticContext) -> Finding | None:
+    """Detect PipeWire socket active but service not running (socket activation pending)."""
+    if ctx.environment.is_x11:
+        return None
+
+    pw_service = ctx.pipewire_statuses.get("pipewire.service")
+    pw_socket = ctx.pipewire_statuses.get("pipewire.socket")
+
+    # Socket is active but service isn't - might be waiting for activation
+    if pw_socket and pw_socket.is_active and pw_service and not pw_service.is_active:
+        return Finding(
+            id="pipewire_socket_activation_pending",
+            severity=Severity.INFO,
+            title="PipeWire Using Socket Activation",
+            component="PipeWire",
+            details=(
+                "PipeWire socket is active but the service hasn't started yet. "
+                "This is normal with socket activation - the service will start when "
+                "an application first tries to use it.\n\n"
+                "If you're experiencing issues, you can manually start PipeWire."
+            ),
+            evidence="pipewire.socket: active, pipewire.service: inactive",
+            recommended_actions=[
+                Action(
+                    id="start_pipewire",
+                    type=ActionType.RESTART_SERVICE,
+                    label="Start PipeWire Now",
+                    description="Manually start the PipeWire service",
+                    command="systemctl --user start pipewire.service",
+                ),
+            ],
+        )
+
+    return None
+
+
+def rule_cosmic_desktop(ctx: DiagnosticContext) -> Finding | None:
+    """Detect COSMIC desktop and provide specific guidance."""
+    desktop = ctx.environment.current_desktop.lower()
+    compositor = (ctx.environment.compositor or "").lower()
+
+    is_cosmic = "cosmic" in desktop or "cosmic" in compositor
+
+    if not is_cosmic:
+        return None
+
+    # COSMIC is still in development, provide guidance
+    return Finding(
+        id="cosmic_desktop_detected",
+        severity=Severity.INFO,
+        title="COSMIC Desktop Detected",
+        component="Desktop Environment",
+        details=(
+            "You're running the COSMIC desktop environment by System76. "
+            "COSMIC is still in active development and may have limited portal support.\n\n"
+            "For screen sharing, COSMIC should work with xdg-desktop-portal-cosmic or "
+            "xdg-desktop-portal-wlr as a fallback."
+        ),
+        evidence=f"Desktop: {ctx.environment.current_desktop}, Compositor: {ctx.environment.compositor}",
+        recommended_actions=[
+            Action(
+                id="cosmic_portal_info",
+                type=ActionType.GUIDANCE,
+                label="COSMIC Portal Info",
+                description=(
+                    "Check if xdg-desktop-portal-cosmic is available for your distribution. "
+                    "If not, xdg-desktop-portal-wlr may work as a fallback."
+                ),
+            ),
+        ],
+    )
+
+
+def rule_dbus_session(ctx: DiagnosticContext) -> Finding | None:
+    """Check DBUS_SESSION_BUS_ADDRESS is set."""
+    import os
+
+    dbus_addr = os.environ.get("DBUS_SESSION_BUS_ADDRESS")
+
+    if not dbus_addr:
+        return Finding(
+            id="dbus_session_missing",
+            severity=Severity.ERROR,
+            title="DBus Session Bus Not Available",
+            component="DBus",
+            details=(
+                "The DBUS_SESSION_BUS_ADDRESS environment variable is not set. "
+                "DBus is required for portal communication.\n\n"
+                "This usually indicates a problem with your session initialization."
+            ),
+            evidence="DBUS_SESSION_BUS_ADDRESS is not set",
+            recommended_actions=[
+                Action(
+                    id="check_dbus",
+                    type=ActionType.SHOW_COMMAND,
+                    label="Check DBus Status",
+                    description="Check if DBus user session is running",
+                    command="systemctl --user status dbus.service dbus.socket",
+                ),
+            ],
+        )
+
+    return None
+
+
 # All diagnostic rules
+RULES: list[RuleFunc] = [
+    rule_x11_session,
+    rule_dbus_session,
+    rule_xdg_runtime_dir,
+    rule_portal_service_not_running,
+    rule_no_backend_running,
+    rule_backend_mismatch,
+    rule_multiple_backends_no_config,
+    rule_conflicting_backends,
+    rule_pipewire_not_running,
+    rule_pipewire_socket_activation,
+    rule_no_session_manager,
+    rule_gtk_use_portal,
+    rule_flatpak_portal_issues,
+    rule_cosmic_desktop,
+]
 RULES: list[RuleFunc] = [
     rule_x11_session,
     rule_portal_service_not_running,
