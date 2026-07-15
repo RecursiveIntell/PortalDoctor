@@ -82,6 +82,12 @@ def create_mock_context(
             is_failed=not pipewire_active,
             status_output="mock status",
         ),
+        "pipewire.socket": ServiceStatus(
+            name="pipewire.socket",
+            is_active=pipewire_active,  # Socket mirrors service by default
+            is_failed=False,
+            status_output="mock status",
+        ),
         "wireplumber.service": ServiceStatus(
             name="wireplumber.service",
             is_active=wireplumber_active,
@@ -227,9 +233,25 @@ class TestRulePipewireNotRunning:
     def test_pipewire_not_checked_on_x11(self):
         """Test PipeWire rule is skipped on X11."""
         ctx = create_mock_context(session_type="x11", pipewire_active=False)
-        
+
         finding = rule_pipewire_not_running(ctx)
-        
+
+        assert finding is None
+
+    def test_pipewire_socket_active_no_error(self):
+        """Test no error when PipeWire socket is active but service is not (socket activation)."""
+        ctx = create_mock_context(pipewire_active=False)
+        # Override to have socket active but service inactive
+        ctx.pipewire_statuses["pipewire.socket"] = ServiceStatus(
+            name="pipewire.socket",
+            is_active=True,
+            is_failed=False,
+            status_output="mock status",
+        )
+
+        finding = rule_pipewire_not_running(ctx)
+
+        # Should NOT report an error because socket is active
         assert finding is None
 
 

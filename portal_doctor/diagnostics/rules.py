@@ -312,17 +312,23 @@ def rule_pipewire_not_running(ctx: DiagnosticContext) -> Finding | None:
     """Detect if PipeWire is not running."""
     if ctx.environment.is_x11:
         return None
-    
+
     pw_status = ctx.pipewire_statuses.get("pipewire.service")
-    
+    pw_socket = ctx.pipewire_statuses.get("pipewire.socket")
+
     if pw_status and pw_status.is_active:
         return None
-    
+
+    # Check for socket activation - if socket is active, PipeWire will start on demand
+    # This is normal and not an error
+    if pw_socket and pw_socket.is_active:
+        return None
+
     severity = Severity.ERROR
     if pw_status and pw_status.is_failed:
         evidence = "pipewire.service: failed"
     else:
-        evidence = "pipewire.service: not active"
+        evidence = "pipewire.service: not active, pipewire.socket: not active"
     
     def restart_pipewire():
         return restart_service("pipewire.service")
@@ -795,15 +801,6 @@ RULES: list[RuleFunc] = [
     rule_gtk_use_portal,
     rule_flatpak_portal_issues,
     rule_cosmic_desktop,
-]
-RULES: list[RuleFunc] = [
-    rule_x11_session,
-    rule_portal_service_not_running,
-    rule_no_backend_running,
-    rule_backend_mismatch,
-    rule_multiple_backends_no_config,
-    rule_pipewire_not_running,
-    rule_no_session_manager,
 ]
 
 

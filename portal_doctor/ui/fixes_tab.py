@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QTextEdit, QDialog, QDialogButtonBox,
     QMessageBox, QSizePolicy, QListWidget, QListWidgetItem
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
 from ..models import Finding, Severity, Action, ActionType
@@ -13,7 +13,9 @@ from ..models import Finding, Severity, Action, ActionType
 
 class FixCard(QFrame):
     """A card displaying a finding and its fixes."""
-    
+
+    fix_applied = Signal()  # Emitted when a fix is successfully applied
+
     def __init__(self, finding: Finding, parent=None):
         super().__init__(parent)
         self.finding = finding
@@ -184,6 +186,7 @@ class FixCard(QFrame):
                     success, message = action.execute_callback()
                     if success:
                         QMessageBox.information(self, "Success", f"✅ {message}")
+                        self.fix_applied.emit()
                     else:
                         QMessageBox.warning(self, "Failed", f"❌ {message}")
             elif action.command:
@@ -209,6 +212,7 @@ class FixCard(QFrame):
                         success, message = action.execute_callback()
                         if success:
                             QMessageBox.information(self, "Success", f"✅ {message}")
+                            self.fix_applied.emit()
                         else:
                             QMessageBox.warning(self, "Failed", f"❌ {message}")
             return
@@ -668,7 +672,9 @@ class BackupBrowserDialog(QDialog):
 
 class FixesTab(QWidget):
     """Fixes tab showing recommended actions for findings."""
-    
+
+    fix_applied = Signal()  # Emitted when any fix is successfully applied
+
     def __init__(self):
         super().__init__()
         self.findings = []
@@ -777,6 +783,7 @@ class FixesTab(QWidget):
         # Add cards for each finding
         for finding in actionable:
             card = FixCard(finding)
+            card.fix_applied.connect(self.fix_applied.emit)
             self.cards_layout.insertWidget(
                 self.cards_layout.count() - 1,  # Before stretch
                 card

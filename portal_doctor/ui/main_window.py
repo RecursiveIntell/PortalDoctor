@@ -265,6 +265,7 @@ class MainWindow(QMainWindow):
         self.overview_tab.findings_updated.connect(self._on_findings_updated)
         self.overview_tab.data_ready.connect(self._on_data_ready)
         self.screencast_tab.test_failed.connect(self._on_screencast_failed)
+        self.fixes_tab.fix_applied.connect(self._on_fix_applied)
 
         # Apply styling
         self._apply_styles()
@@ -588,6 +589,12 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"Screencast test failed - {len(findings)} fix(es) available")
         # Switch to Fixes tab
         self.tabs.setCurrentWidget(self.fixes_tab)
+
+    def _on_fix_applied(self):
+        """Handle when a fix is successfully applied."""
+        self.status_label.setText("Fix applied - refreshing diagnostics...")
+        # Short delay to allow service to fully start
+        QTimer.singleShot(1000, self._refresh_diagnostics)
 
 
 def run_gui():
