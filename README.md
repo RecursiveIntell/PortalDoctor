@@ -4,16 +4,16 @@ A Linux desktop application that diagnoses and fixes Wayland screen-sharing issu
 
 ## Purpose
 
-Portal Doctor solves a common pain point for Linux desktop users: screen-sharing issues in Discord, browsers, Electron apps, OBS, Teams, Slack, and anything using the XDG Desktop Portal ScreenCast interface.
+Portal Doctor helps investigate a common pain point for Linux desktop users: screen-sharing issues in Discord, browsers, Electron apps, OBS, Teams, Slack, and anything using the XDG Desktop Portal ScreenCast interface.
 
 The app provides a single GUI that:
 - **Detects** your desktop/session/portal stack configuration
 - **Diagnoses** common failure modes with specific actionable explanations
-- **Applies safe fixes** with preview + backup + undo capabilities
+- **Offers configuration and service fixes** with preview + backup + undo capabilities
 - **Runs a portal-based screencast test** to verify real functionality
 - **Produces a paste-ready diagnostic report** for bug trackers and support forums
 
-## Supported Environments
+## Desktop detection and backend guidance
 
 - **KDE Plasma** (Wayland)
 - **GNOME** (Wayland)
@@ -23,6 +23,8 @@ The app provides a single GUI that:
 - **LXQt** (Wayland)
 - **Cinnamon**
 - **X11 sessions** (limited functionality with appropriate warnings)
+
+The code recognizes these environments and chooses diagnostic guidance; this list is not a tested compatibility matrix. Actual screen sharing depends on the installed portal backend, compositor and application.
 
 ## Features
 
@@ -59,9 +61,9 @@ portal-doctor --version            # Show version
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.11 or 3.12 (`>=3.11,<3.13` in the package manifest)
 - PySide6 (Qt6)
-- dbus-next
+- dbus-next, pinned to a Git revision in `pyproject.toml`
 - A running Wayland or X11 session
 - systemd user session (recommended)
 
@@ -87,13 +89,15 @@ poetry run portal-doctor
 # Clone and install from source
 git clone https://github.com/RecursiveIntell/PortalDoctor
 cd PortalDoctor
-pip install .
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install .
 
 # Run
 portal-doctor
 ```
 
-### Quick Run (No Install)
+### Convenience launcher (may install dependencies)
 
 ```bash
 # Clone and run directly
@@ -102,7 +106,7 @@ cd PortalDoctor
 ./run.sh
 ```
 
-The `run.sh` script will automatically install dependencies if needed.
+The `run.sh` script runs `pip install --user dbus-next PySide6` when imports are missing. That path does not enforce the manifest's pinned dbus-next revision. Prefer the isolated package installation above for a reproducible dependency set.
 
 ## Usage
 
@@ -151,13 +155,9 @@ portal-doctor --test-screencast
 
 ## Safety
 
-Portal Doctor prioritizes safety:
-- **No root required** - Runs entirely as a normal user
-- **No silent changes** - Always shows a preview/diff before changes
-- **Automatic backups** - All config changes are backed up with timestamps
-- **Undo support** - Easily revert any changes made by the app
-- **Log sanitization** - Personal paths and usernames are removed from reports
-- **No telemetry** - No network calls, all data stays local
+Review the proposed action before applying it. Diagnostics normally run as your user. Configuration generation offers previews and timestamped backups, while service actions may restart PipeWire or portals and interrupt active sharing/audio sessions. Undo support for configuration files does not reverse every service or system action.
+
+Journal-log sanitization removes selected patterns, not every possible secret or personal detail. Inspect the complete report before sharing it. Dependency installation uses the network; the app's local diagnostic workflow should not be described as a guarantee that every launcher or suggested command is offline.
 
 ## Development
 
