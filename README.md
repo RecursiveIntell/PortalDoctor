@@ -1,5 +1,7 @@
 # Portal Doctor
 
+<!-- last-verified: 2026-10-24; README/source review only, not product runtime testing -->
+
 A Linux desktop application that diagnoses and fixes Wayland screen-sharing issues caused by misconfigured/mismatched PipeWire + xdg-desktop-portal + portal backends.
 
 ## Purpose
@@ -49,15 +51,29 @@ The code recognizes these environments and chooses diagnostic guidance; this lis
 - **Keyboard Shortcuts**: Ctrl+R (refresh), Ctrl+1-4 (tabs), F5 (test), and more
 - **Dark Theme**: Modern, polished dark interface
 
-### CLI Features
+### Command-line interface
+
+Running `portal-doctor` with no options opens the GUI. Use `--no-gui` to stay in the terminal; by itself it runs the default health check.
+
 ```bash
 portal-doctor --check              # Run health check
-portal-doctor --check --verbose    # Detailed output with evidence
-portal-doctor --check --json       # JSON output for scripting
-portal-doctor --report             # Generate diagnostic report
-portal-doctor --test-screencast    # Run screencast test
+portal-doctor --check --verbose    # Include diagnostic details
+portal-doctor --check --json       # Emit JSON for scripting
+portal-doctor --report             # Save a Markdown diagnostic report
+portal-doctor --test-screencast    # Start a portal screen-capture test
 portal-doctor --version            # Show version
 ```
+
+| Option | Behavior |
+|---|---|
+| `-h`, `--help` | Show command help and exit. |
+| `-V`, `--version` | Show the installed version and exit. |
+| `--check` | Run diagnostics in the terminal. |
+| `--report` | Save a Markdown report to `~/Documents/portal-doctor/report-<timestamp>.md`. |
+| `--test-screencast` | Attempt a screen-capture session; a desktop picker may appear. |
+| `--no-gui` | Select terminal mode; with no action option, runs the default health check. |
+| `-v`, `--verbose` | Include additional diagnostic details. |
+| `--json` | Emit JSON with `--check` or `--test-screencast`; `--report` saves Markdown. |
 
 ## Requirements
 
@@ -157,7 +173,7 @@ portal-doctor --test-screencast
 
 Review the proposed action before applying it. Diagnostics normally run as your user. Configuration generation offers previews and timestamped backups, while service actions may restart PipeWire or portals and interrupt active sharing/audio sessions. Undo support for configuration files does not reverse every service or system action.
 
-Journal-log sanitization removes selected patterns, not every possible secret or personal detail. Inspect the complete report before sharing it. Dependency installation uses the network; the app's local diagnostic workflow should not be described as a guarantee that every launcher or suggested command is offline.
+Diagnostics read session and desktop environment variables including `XDG_SESSION_TYPE`, `WAYLAND_DISPLAY`, `DISPLAY`, `XDG_CURRENT_DESKTOP`, `DESKTOP_SESSION`, `KDE_FULL_SESSION`, `GNOME_DESKTOP_SESSION_ID`, `HYPRLAND_INSTANCE_SIGNATURE`, `SWAYSOCK`, `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR`, `GTK_USE_PORTAL`, and `FLATPAK_ID`. Generated reports also include `QT_QPA_PLATFORM` and `GDK_BACKEND` values when set. Log sanitization uses `USER` or `LOGNAME` and `HOME` to replace selected path patterns, but does not remove every possible secret or personal detail. Inspect the complete report before sharing it. Dependency installation uses the network; the app's local diagnostic workflow should not be described as a guarantee that every launcher or suggested command is offline.
 
 ## Development
 
